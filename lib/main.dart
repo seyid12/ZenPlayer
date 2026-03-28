@@ -125,6 +125,8 @@ class _AnaOynaticiEkraniState extends State<AnaOynaticiEkrani> {
                   borderRadius: BorderRadius.circular(20),
                   child: Video(
                     controller: controller,
+                    pauseUponEnteringBackgroundMode: false,
+                    resumeUponEnteringForegroundMode: true,
                     fill: Colors.transparent,
                   ),
                 ),
