@@ -49,5 +49,9 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ZenPlayer, oynatmak istediğiniz video ve ses dosyalarını seçebilmeniz için galerinize ve dosyalarınıza erişim izni gerektirir.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Uygulama, medya oynatım süreçleri için bu izne ihtiyaç duyar.</string>
 </dict>
 </plist>
