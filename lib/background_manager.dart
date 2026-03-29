@@ -92,6 +92,24 @@ class MobileAudioHandler extends BaseAudioHandler
         ),
       );
     });
+
+    // 3- Şarkı değiştiğinde kilit ekranını Dinamik verilerle (Extras çekmecesi) Güncelle
+    player.stream.playlist.listen((playlist) {
+      if (playlist.medias.isEmpty) return;
+      
+      final currentMedia = playlist.medias[playlist.index];
+      final title = currentMedia.extras?['title'] as String? ?? currentMedia.uri.split('/').last.split('\\').last;
+      final artist = currentMedia.extras?['artist'] as String? ?? 'Bilinmeyen Sanatçı';
+
+      mediaItem.add(
+        MediaItem(
+          id: currentMedia.uri,
+          album: 'ZenPlayer',
+          title: title,
+          artist: artist,
+        ),
+      );
+    });
   }
 
   @override
