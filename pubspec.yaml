@@ -41,6 +41,10 @@ dependencies:
   smtc_windows: ^1.1.0
   audio_service: ^0.18.18
   rxdart: ^0.28.0
+  on_audio_query_forked: ^2.9.1
+  permission_handler: ^11.3.1
+  photo_manager: ^3.5.3
+  shared_preferences: ^2.2.3
 
 dev_dependencies:
   flutter_test:
@@ -52,6 +56,19 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/logo.png"
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: "assets/logo.png"
+  android_12:
+    image: "assets/logo.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
