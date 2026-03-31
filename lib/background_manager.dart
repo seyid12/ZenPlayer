@@ -4,6 +4,22 @@ import 'package:audio_service/audio_service.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:smtc_windows/smtc_windows.dart';
 
+// Arka plan medya servislerini temizle
+Future<void> cleanupBackgroundControls() async {
+  try {
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      await audioHandlerGlobal?.stop();
+    }
+  } catch (_) {}
+  try {
+    if (Platform.isWindows) {
+      // SMTCWindows.dispose() static değil, instance üzerinden çağrılmalı
+      // Ancak SMTCWindows örneği globalde tutulmuyor, bu nedenle SMTCWindows ile ilgili temizlik gerekirse burada eklenmeli
+      // Şimdilik atlanıyor, SMTCWindows'un memory leak riski yoksa sorun olmaz
+    }
+  } catch (_) {}
+}
+
 // İleride lazım olursa diye handler tutucusu (uyarı vermemesi için kullanıldı)
 AudioHandler? audioHandlerGlobal;
 

@@ -87,10 +87,10 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
     final lastArtist = prefs.getString('zenplayer_last_artist');
 
     if (lastMedia != null && lastMedia.isNotEmpty) {
-      final m = Media(
-        lastMedia,
-        extras: {'title': ?lastName, 'artist': ?lastArtist},
-      );
+        final m = Media(
+          lastMedia,
+          extras: {'title': lastName, 'artist': lastArtist},
+        );
       // Sesi sessiz sedasız (play: false) Player'a yükle
       player.open(m, play: false);
 
@@ -135,6 +135,8 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
     WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     player.dispose();
+    // Arka plan servislerini de sonlandır
+    cleanupBackgroundControls();
     super.dispose();
   }
 
@@ -142,7 +144,7 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
   void _kutuphanedenOynat(String dosyaYolu, [String? title, String? artist]) {
     final media = Media(
       dosyaYolu,
-      extras: {'title': ?title, 'artist': ?artist},
+      extras: {'title': title, 'artist': artist},
     );
 
     if (player.state.playlist.medias.isEmpty) {
@@ -150,6 +152,8 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
       player.play();
     } else {
       player.add(media);
+      // Eklenen medyayı hemen çal
+      player.jump(player.state.playlist.medias.length);
     }
   }
 
@@ -292,21 +296,19 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
   Widget _buildMiniPlayer() {
     return StreamBuilder<Playlist>(
       stream: player.stream.playlist,
+      initialData: player.state.playlist,
       builder: (context, snapshot) {
         final playlist = snapshot.data ?? player.state.playlist;
         if (playlist.medias.isEmpty || _tabController.index == 0) {
           return const SizedBox.shrink();
         }
-
         final currentIndex = playlist.index;
         if (currentIndex < 0 || currentIndex >= playlist.medias.length) {
           return const SizedBox.shrink();
         }
-
         final currentMedia = playlist.medias[currentIndex];
         final title = currentMedia.extras?['title'] as String? ?? "Bilinmeyen Şarkı";
         final artist = currentMedia.extras?['artist'] as String? ?? "Bilinmeyen Sanatçı";
-
         return GestureDetector(
           onTap: () => _tabController.animateTo(0),
           child: Container(
@@ -318,7 +320,7 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C896).withOpacity(0.2),
+                    color: const Color(0xFF00C896).withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.music_note_rounded, color: Color(0xFF00C896)),
@@ -336,8 +338,9 @@ class _AnaEkraniState extends State<AnaEkrani> with WidgetsBindingObserver, Sing
                 ),
                 StreamBuilder<bool>(
                   stream: player.stream.playing,
-                  builder: (context, playingSnapshot) {
-                    final isPlaying = playingSnapshot.data ?? player.state.playing;
+                  initialData: player.state.playing,
+                  builder: (context, snapshot) {
+                    final isPlaying = snapshot.data ?? false;
                     return IconButton(
                       icon: Icon(isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white),
                       onPressed: () => player.playOrPause(),
@@ -637,9 +640,10 @@ class OynaticiSekmesi extends StatelessWidget {
                   Expanded(
                     child: StreamBuilder<Playlist>(
                       stream: player.stream.playlist,
+                      initialData: player.state.playlist,
                       builder: (context, snapshot) {
-                        if (!snapshot.hasData ||
-                            snapshot.data!.medias.isEmpty) {
+                        final playlist = snapshot.data ?? player.state.playlist;
+                        if (playlist.medias.isEmpty) {
                           return const Center(
                             child: Text(
                               "Kuyruk tamamen boş...\nLütfen üst sekmeden Kütüphane'ye gidip arşivinize göz atın.",
@@ -652,10 +656,10 @@ class OynaticiSekmesi extends StatelessWidget {
                           );
                         }
                         return ListView.builder(
-                          itemCount: snapshot.data!.medias.length,
+                          itemCount: playlist.medias.length,
                           itemBuilder: (context, index) {
-                            final media = snapshot.data!.medias[index];
-                            final isPlaying = index == snapshot.data!.index;
+                            final media = playlist.medias[index];
+                            final isPlaying = index == playlist.index;
                             final dosyaAdi = media.uri
                                 .split('/')
                                 .last
@@ -836,105 +840,153 @@ class _KutuphaneSekmesiState extends State<KutuphaneSekmesi> {
 
         final songs = snapshot.data!;
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          itemCount: songs.length,
-          itemBuilder: (context, index) {
-            final song = songs[index];
-            return StreamBuilder<Playlist>(
-              stream: widget.player.stream.playlist,
-              builder: (context, playlistSnapshot) {
-                final playlist = playlistSnapshot.data ?? widget.player.state.playlist;
-                final isPlaying = playlist.medias.isNotEmpty && 
-                                  playlist.index >= 0 && 
-                                  playlist.index < playlist.medias.length && 
-                                  playlist.medias[playlist.index].uri == song.data;
-                
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 5,
-                    horizontal: 20,
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00C896),
+                    foregroundColor: Colors.white,
                   ),
-                  leading: QueryArtworkWidget(
-                    id: song.id,
-                    type: ArtworkType.AUDIO,
-                    nullArtworkWidget: Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: isPlaying ? const Color(0xFF00C896).withOpacity(0.2) : Colors.white12,
-                        borderRadius: BorderRadius.circular(10),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text("Tümünü Oynat"),
+                  onPressed: () {
+                    final playlistMedias = songs.map((song) => Media(song.data, extras: {'title': song.title, 'artist': song.artist})).toList();
+                    widget.player.open(Playlist(playlistMedias));
+                    widget.player.play();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Tüm şarkılar sırayla oynatılıyor!"),
+                        backgroundColor: Color(0xFF00C896),
+                        duration: Duration(seconds: 1),
                       ),
-                      child: Icon(
-                        isPlaying ? Icons.play_circle_fill_rounded : Icons.music_note_rounded,
-                        color: isPlaying ? const Color(0xFF00C896) : Colors.white54,
-                        size: 25,
-                      ),
-                    ),
-                  ),
-                  title: Text(
-                    song.title,
-                    style: TextStyle(
-                      color: isPlaying ? const Color(0xFF00C896) : Colors.white,
-                      fontWeight: isPlaying ? FontWeight.bold : FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              subtitle: Text(
-                song.artist ?? "Bilinmeyen Sanatçı",
-                style: const TextStyle(color: Colors.white54),
+                    );
+                  },
+                ),
               ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _favoriIdler.contains(song.id.toString())
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: _favoriIdler.contains(song.id.toString())
-                          ? Colors.pinkAccent
-                          : Colors.white54,
-                    ),
-                    onPressed: () => _favoriDegistir(song.id.toString()),
-                  ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.add_circle_outline_rounded,
-                      color: Color(0xFF00C896),
-                    ),
-                    onPressed: () {
-                      widget.onOynatGonder(song.data, song.title, song.artist);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("${song.title} sıraya eklendi!"),
-                          backgroundColor: const Color(0xFF00C896),
-                          duration: const Duration(seconds: 1),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                itemCount: songs.length,
+                itemBuilder: (context, index) {
+                  final song = songs[index];
+                  return StreamBuilder<Playlist>(
+                    stream: widget.player.stream.playlist,
+                    builder: (context, playlistSnapshot) {
+                      final playlist = playlistSnapshot.data ?? widget.player.state.playlist;
+                      final isPlaying = playlist.medias.isNotEmpty && 
+                                        playlist.index >= 0 && 
+                                        playlist.index < playlist.medias.length && 
+                                        playlist.medias[playlist.index].uri == song.data;
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 5,
+                          horizontal: 20,
                         ),
+                        leading: QueryArtworkWidget(
+                          id: song.id,
+                          type: ArtworkType.AUDIO,
+                          nullArtworkWidget: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: isPlaying ? const Color(0xFF00C896).withValues(alpha: 0.2) : Colors.white12,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              isPlaying ? Icons.play_circle_fill_rounded : Icons.music_note_rounded,
+                              color: isPlaying ? const Color(0xFF00C896) : Colors.white54,
+                              size: 25,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          song.title,
+                          style: TextStyle(
+                            color: isPlaying ? const Color(0xFF00C896) : Colors.white,
+                            fontWeight: isPlaying ? FontWeight.bold : FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          song.artist ?? "Bilinmeyen Sanatçı",
+                          style: const TextStyle(color: Colors.white54),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                _favoriIdler.contains(song.id.toString())
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: _favoriIdler.contains(song.id.toString())
+                                    ? Colors.pinkAccent
+                                    : Colors.white54,
+                              ),
+                              onPressed: () => _favoriDegistir(song.id.toString()),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.add_circle_outline_rounded,
+                                color: Color(0xFF00C896),
+                              ),
+                              onPressed: () {
+                                widget.onOynatGonder(song.data, song.title, song.artist);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text("${song.title} sıraya eklendi!"),
+                                    backgroundColor: const Color(0xFF00C896),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          final playlist = widget.player.state.playlist;
+                          final alreadyInPlaylist = playlist.medias.any((m) => m.uri == song.data);
+                          if (!alreadyInPlaylist) {
+                            widget.onOynatGonder(song.data, song.title, song.artist);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("${song.title} oynatılıyor!"),
+                                backgroundColor: const Color(0xFF6C63FF),
+                                duration: const Duration(seconds: 1),
+                              ),
+                            );
+                          } else {
+                            // Eğer zaten varsa sadece oynat
+                            final index = playlist.medias.indexWhere((m) => m.uri == song.data);
+                            if (index != -1) {
+                              widget.player.jump(index);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("${song.title} zaten çalma listesinde, oynatılıyor!"),
+                                  backgroundColor: const Color(0xFF6C63FF),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          }
+                          DefaultTabController.maybeOf(context)?.animateTo(0);
+                        },
                       );
                     },
-                  ),
-                ],
+                  );
+                },
               ),
-              onTap: () {
-                widget.onOynatGonder(song.data, song.title, song.artist);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text("${song.title} oynatılıyor!"),
-                    backgroundColor: const Color(0xFF6C63FF),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
-                DefaultTabController.maybeOf(context)?.animateTo(0);
-              },
-            );
-          },
+            ),
+          ],
         );
       },
     );
-  },
-);
   }
 }
 
@@ -1070,7 +1122,7 @@ class _FavorilerSekmesiState extends State<FavorilerSekmesi> {
                       width: 50,
                       height: 50,
                       decoration: BoxDecoration(
-                        color: isPlaying ? const Color(0xFF00C896).withOpacity(0.2) : Colors.white12,
+                        color: isPlaying ? const Color(0xFF00C896).withValues(alpha: 0.2) : Colors.white12,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(

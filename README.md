@@ -1,6 +1,6 @@
-# medya_oynatici
+# ZenPlayer
 
-A new Flutter project.
+A new Flutter project (formerly Medya Oynatıcı).
 
 ## Getting Started
 
